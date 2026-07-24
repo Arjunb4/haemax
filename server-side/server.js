@@ -10,25 +10,37 @@ app.get('/', (req, res) => {
 
 // ✅ Enable CORS with proper settings
 app.use(cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173", // Allow requests from the client-side URL
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        // or any local development origin
+        if (!origin || origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1")) {
+            callback(null, true);
+        } else if (origin === process.env.CLIENT_URL) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true, // Allows cookies & auth headers
 }));
 
 // ✅ Middleware to parse JSON & URL-encoded data
-app.use(express.json()); // Replaces body-parser.json()
-app.use(express.urlencoded({ extended: true })); // Replaces body-parser.urlencoded()
+app.use(express.json({ limit: "50mb" })); // Replaces body-parser.json()
+app.use(express.urlencoded({ extended: true, limit: "50mb" })); // Replaces body-parser.urlencoded()
 
 // ✅ Import Routes
 const donorRoutes = require("./routes/donorRoutes");
 const authRoutes = require("./routes/authRoutes");
 const profileRoutes = require("./routes/profile");
 const receiverRoutes = require("./routes/receiverRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 // ✅ Use Routes
 app.use("/api/donors", donorRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/receivers", receiverRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ✅ Default 404 Handler
 app.use((req, res) => {
@@ -43,12 +55,11 @@ app.use((err, req, res, next) => {
 
 // ✅ Check for JWT_SECRET in .env
 if (!process.env.JWT_SECRET) {
-    console.error("JWT_SECRET is not defined in .env");
-    process.exit(1);
+    console.warn("JWT_SECRET is not defined in the environment; auth routes may fail until it is configured.");
 }
 
 // ✅ Start Server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
 });
