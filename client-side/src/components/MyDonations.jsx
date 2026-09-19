@@ -47,8 +47,14 @@ function MyDonations() {
         <div className="donation-record-card">
           <div className="record-header">
             <h3>Donor Status</h3>
-            <span className={`status-badge ${donationData.availability ? 'active' : 'inactive'}`}>
-              {donationData.availability ? 'Available to Donate' : 'Currently Unavailable'}
+            <span className={`status-badge ${donationData.status === 'approved' && donationData.availability ? 'active' : 'inactive'}`}>
+              {donationData.status === 'pending'
+                ? 'Pending Admin Approval'
+                : donationData.status === 'rejected'
+                ? 'Application Rejected'
+                : donationData.availability
+                ? 'Available to Donate'
+                : 'Currently Unavailable'}
             </span>
           </div>
 
@@ -60,6 +66,10 @@ function MyDonations() {
             <div className="detail-item">
               <span className="label">Location</span>
               <span className="value">{donationData.city}, {donationData.district}</span>
+            </div>
+            <div className="detail-item">
+              <span className="label">Approval Status</span>
+              <span className="value" style={{ textTransform: 'capitalize' }}>{donationData.status || 'pending'}</span>
             </div>
             <div className="detail-item">
               <span className="label">Last Donated</span>

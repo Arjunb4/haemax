@@ -33,7 +33,7 @@ function App() {
           .from("profiles")
           .select("role, profile_pic, status")
           .eq("id", session.user.id)
-          .single()
+          .maybeSingle()
           .then(({ data }) => {
             if (data) {
               localStorage.setItem("role", data.role || "user");
@@ -52,27 +52,28 @@ function App() {
         if (session) {
           setIsAuthenticated(true);
           localStorage.setItem("token", session.access_token);
-          // Fetch/create profile on Google OAuth signup
           if (event === "SIGNED_IN") {
             const { data: profile } = await supabase
               .from("profiles")
               .select("role, profile_pic, status, fname")
               .eq("id", session.user.id)
-              .single();
+              .maybeSingle();
 
             if (!profile) {
-              // New Google user — create profile
               const meta = session.user.user_metadata || {};
-              await supabase.from("profiles").insert({
+              const newProfile = {
                 id: session.user.id,
-                fname: meta.given_name || meta.full_name?.split(" ")[0] || "User",
-                lname: meta.family_name || meta.full_name?.split(" ").slice(1).join(" ") || "",
-                phone: "Not Provided",
+                fname: meta.fname || meta.given_name || meta.full_name?.split(" ")[0] || "User",
+                lname: meta.lname || meta.family_name || meta.full_name?.split(" ").slice(1).join(" ") || "",
+                phone: meta.phone || "Not Provided",
                 profile_pic: meta.avatar_url || "",
                 role: "user",
                 status: "active"
-              });
+              };
+              // It's possible `api.js` login already inserted it so we ignore errors here
+              await supabase.from("profiles").insert(newProfile);
               localStorage.setItem("role", "user");
+              localStorage.setItem("profilePic", newProfile.profile_pic);
             } else {
               localStorage.setItem("role", profile.role || "user");
               localStorage.setItem("profilePic", profile.profile_pic || "");

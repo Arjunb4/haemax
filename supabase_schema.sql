@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS public.donors (
   city              TEXT,
   district          TEXT,
   availability      BOOLEAN DEFAULT TRUE,
+  status            TEXT DEFAULT 'pending',
   created_at        TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -86,6 +87,16 @@ CREATE POLICY "Anyone can view donors"
 CREATE POLICY "Authenticated users can register as donor"
   ON public.donors FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
+
+-- Admins can update donor status
+CREATE POLICY "Admin can update donors"
+  ON public.donors FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = auth.uid() AND p.role = 'admin'
+    )
+  );
 
 -- ============================================================
 

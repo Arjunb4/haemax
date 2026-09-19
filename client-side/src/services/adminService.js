@@ -68,6 +68,25 @@ export const getRequests = async () => {
   return data || [];
 };
 
+// ✅ Get all donors for admin (approved, pending, rejected)
+export const getAllDonors = async () => {
+  const { data, error } = await supabase
+    .from('donors')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
+// ✅ Update donor approval status
+export const updateDonorStatus = async (id, status) => {
+  const { error } = await supabase
+    .from('donors')
+    .update({ status })
+    .eq('id', id);
+  if (error) throw error;
+};
+
 // ✅ Match donors and hospitals for a request
 export const getMatches = async ({ blood_type, district, city }) => {
   const [{ data: donors }, { data: hospitals }] = await Promise.all([
@@ -75,7 +94,8 @@ export const getMatches = async ({ blood_type, district, city }) => {
       .from('donors')
       .select('id, name, phone, email, city, district, availability, blood_type, gender')
       .eq('blood_type', blood_type)
-      .eq('availability', true),
+      .eq('availability', true)
+      .eq('status', 'approved'), // only match approved donors
     supabase
       .from('hospitals')
       .select('id, name, location, contact, available_beds, blood_inventory')

@@ -92,9 +92,9 @@ function Form() {
     }
 
     try {
-      await registerDonor(formData);
-      alert("Form submitted successfully!");
-      navigate('/');
+      const res = await registerDonor(formData);
+      alert(res.message || "Form submitted successfully! Pending approval.");
+      navigate('/donations');
 
       setFormData({
         name: '', phone: '', email: '', blood_type: '', gender: '',

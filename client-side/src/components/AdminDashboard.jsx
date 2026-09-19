@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import {
   getAllUsers, updateUserStatus,
   getHospitals, addHospital, deleteHospital,
-  getRequests, getMatches
+  getRequests, getMatches,
+  getAllDonors, updateDonorStatus
 } from "../services/adminService";
 import "./AdminDashboard.css";
 
@@ -11,6 +12,7 @@ function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [hospitals, setHospitals] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [donors, setDonors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -41,6 +43,9 @@ function AdminDashboard() {
       } else if (activeTab === "requests") {
         const data = await getRequests();
         setRequests(data);
+      } else if (activeTab === "donors") {
+        const data = await getAllDonors();
+        setDonors(data);
       }
     } catch (err) {
       setError("Failed to load data. Please ensure you have admin privileges.");
@@ -56,6 +61,15 @@ function AdminDashboard() {
       setUsers(users.map(u => u.id === userId ? { ...u, status: newStatus } : u));
     } catch (err) {
       alert("Failed to update user status.");
+    }
+  };
+
+  const handleDonorApproval = async (donorId, newStatus) => {
+    try {
+      await updateDonorStatus(donorId, newStatus);
+      setDonors(donors.map(d => d.id === donorId ? { ...d, status: newStatus } : d));
+    } catch (err) {
+      alert("Failed to update donor status.");
     }
   };
 
@@ -110,11 +124,12 @@ function AdminDashboard() {
     <div className="admin-dashboard">
       <div className="admin-header">
         <h1>Admin Control Panel</h1>
-        <p>Manage users, hospitals, and view donation requests.</p>
+        <p>Manage users, donors, hospitals, and view donation requests.</p>
       </div>
 
       <div className="admin-tabs">
         <button className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>Users</button>
+        <button className={`tab-btn ${activeTab === 'donors' ? 'active' : ''}`} onClick={() => setActiveTab('donors')}>Donors Approval</button>
         <button className={`tab-btn ${activeTab === 'hospitals' ? 'active' : ''}`} onClick={() => setActiveTab('hospitals')}>Hospitals</button>
         <button className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>Donation Requests</button>
       </div>
@@ -155,6 +170,58 @@ function AdminDashboard() {
                   </tr>
                 ))}
                 {users.length === 0 && <tr><td colSpan="5">No users found.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!loading && !error && activeTab === 'donors' && (
+          <div className="table-container">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Blood Group</th>
+                  <th>Location</th>
+                  <th>Phone / Email</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {donors.map(d => (
+                  <tr key={d.id}>
+                    <td>{d.name}</td>
+                    <td><span className="blood-type-badge">{d.blood_type}</span></td>
+                    <td>{d.city}, {d.district}</td>
+                    <td>{d.phone} <br/><small>{d.email}</small></td>
+                    <td>
+                      <span className={`status-badge ${d.status === 'approved' ? 'active' : (d.status === 'rejected' ? 'deny' : 'pending')}`}>
+                        {d.status || 'pending'}
+                      </span>
+                    </td>
+                    <td>
+                      {d.status !== 'approved' && (
+                        <button
+                          className="action-btn allow"
+                          style={{ marginRight: '5px' }}
+                          onClick={() => handleDonorApproval(d.id, 'approved')}
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {d.status !== 'rejected' && (
+                        <button
+                          className="action-btn deny"
+                          onClick={() => handleDonorApproval(d.id, 'rejected')}
+                        >
+                          Reject
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {donors.length === 0 && <tr><td colSpan="6">No donors found.</td></tr>}
               </tbody>
             </table>
           </div>

@@ -11,20 +11,9 @@ export const signup = async ({ fname, lname, phone, email, password }) => {
   });
 
   if (error) throw error;
-
-  // Insert profile row
-  if (data.user) {
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      fname,
-      lname,
-      phone,
-      role: 'user',
-      status: 'active'
-    });
-    if (profileError) console.error('Profile insert error:', profileError.message);
-  }
-
+  // Note: We DO NOT insert into `profiles` here.
+  // This avoids RLS blocks because the user's email isn't verified yet.
+  // Profile creation happens dynamically upon first login.
   return data;
 };
 
@@ -33,13 +22,31 @@ export const login = async ({ email, password }) => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
-  // Check if user is denied
-  const { data: profile } = await supabase
+  // Gracefully check if profile exists
+  let { data: profile } = await supabase
     .from('profiles')
     .select('status, role, profile_pic')
     .eq('id', data.user.id)
-    .single();
+    .maybeSingle();
 
+  // If profile doesn't exist, this is their first login after confirming email! Create it.
+  if (!profile) {
+    const meta = data.user.user_metadata || {};
+    const newProfile = {
+      id: data.user.id,
+      fname: meta.fname || meta.given_name || meta.full_name?.split(" ")[0] || "User",
+      lname: meta.lname || meta.family_name || meta.full_name?.split(" ").slice(1).join(" ") || "",
+      phone: meta.phone || "Not Provided",
+      profile_pic: meta.avatar_url || "",
+      role: 'user',
+      status: 'active'
+    };
+    
+    await supabase.from('profiles').insert(newProfile);
+    profile = newProfile;
+  }
+
+  // Check if user is denied
   if (profile?.status === 'denied') {
     await supabase.auth.signOut();
     throw new Error('Your account has been deactivated. Please contact support.');
