@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../services/supabaseClient';
 import './Explore.css';
 
 function Explore() {
@@ -8,6 +9,7 @@ function Explore() {
   const [loadingStats, setLoadingStats] = useState(true);
 
   // Dynamic Location and Hospital states
+  const [dbHospitals, setDbHospitals] = useState([]);
   const [hospitals, setHospitals] = useState([]);
   const [loadingHospitals, setLoadingHospitals] = useState(true);
   const [userCoords, setUserCoords] = useState({ lat: 11.6643, lon: 78.1460 }); // default to Salem coordinates
@@ -369,7 +371,7 @@ out center;`;
     }
   };
 
-  // On mount: fetch database stats and user location
+  // On mount: fetch database stats, admin-added hospitals, and user location
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -386,9 +388,29 @@ out center;`;
         setLoadingStats(false);
       }
     };
+
+    const fetchDbHospitals = async () => {
+      try {
+        const { data, error } = await supabase.from('hospitals').select('*').order('created_at', { ascending: false });
+        if (!error && data) {
+          setDbHospitals(data);
+        }
+      } catch (err) {
+        console.warn("Could not fetch Supabase hospitals", err);
+      }
+    };
+
     fetchStats();
+    fetchDbHospitals();
     detectLocationAndFetch();
   }, []);
+
+  // Filter admin-added DB hospitals based on search input
+  const filteredDbHospitals = dbHospitals.filter(hosp => {
+    const query = `${searchCity} ${searchDistrict}`.toLowerCase().trim();
+    if (!query) return true;
+    return hosp.name?.toLowerCase().includes(query) || hosp.location?.toLowerCase().includes(query);
+  });
 
   // Filter hospitals based on user input
   const filteredHospitals = hospitals.filter(hosp => {
@@ -548,6 +570,37 @@ out center;`;
           </div>
         </form>
 
+        {/* Verified Admin-Managed Hospitals with Live Bed & Stock Availability */}
+        {filteredDbHospitals.length > 0 && (
+          <div style={{ marginBottom: '30px' }}>
+            <h3 style={{ color: '#E21B1B', marginBottom: '15px', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              🏥 Verified Partner Hospitals & Live Bed Availability
+            </h3>
+            <div className="directory-grid">
+              {filteredDbHospitals.map((hosp) => (
+                <div key={hosp.id} className="hospital-card" style={{ borderLeft: '4px solid #E21B1B' }}>
+                  <div className="hospital-header">
+                    <span className="hospital-name">{hosp.name}</span>
+                    <span className="hospital-badge badge-normal" style={{ background: '#10b981', color: 'white', fontWeight: 'bold' }}>
+                      🛏️ {hosp.available_beds} Beds Available
+                    </span>
+                  </div>
+                  <p className="hospital-address">📍 {hosp.location}</p>
+                  <p className="hospital-address">📞 {hosp.contact}</p>
+                  <div className="hospital-details-row" style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed #eee' }}>
+                    <span className="hospital-detail-item">
+                      <strong>Blood Stock:</strong> {hosp.blood_inventory || 'Available'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <h3 style={{ color: '#444', marginBottom: '15px', fontSize: '1.1rem' }}>
+          🌐 Nearby Regional Facilities (OpenStreetMap)
+        </h3>
         <div className="directory-grid">
           {loadingHospitals ? (
             <div className="hospitals-loader">

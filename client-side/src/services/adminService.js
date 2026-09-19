@@ -46,6 +46,15 @@ export const deleteHospital = async (id) => {
   if (error) throw error;
 };
 
+// ✅ Update hospital beds and inventory (admin)
+export const updateHospitalBeds = async (id, available_beds, blood_inventory) => {
+  const { error } = await supabase
+    .from('hospitals')
+    .update({ available_beds, blood_inventory })
+    .eq('id', id);
+  if (error) throw error;
+};
+
 // ✅ Get all donation requests (receivers)
 export const getRequests = async () => {
   const { data, error } = await supabase

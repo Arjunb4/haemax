@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   getAllUsers, updateUserStatus,
-  getHospitals, addHospital, deleteHospital,
+  getHospitals, addHospital, deleteHospital, updateHospitalBeds,
   getRequests, getMatches,
   getAllDonors, updateDonorStatus
 } from "../services/adminService";
@@ -94,6 +94,21 @@ function AdminDashboard() {
       fetchData();
     } catch (err) {
       alert("Failed to delete hospital.");
+    }
+  };
+
+  const handleUpdateHospital = async (hospital) => {
+    const beds = prompt("Enter updated available beds count:", hospital.available_beds);
+    if (beds === null) return;
+    const inv = prompt("Enter updated blood inventory (e.g. A+: 5, O-: 2):", hospital.blood_inventory || "");
+    if (inv === null) return;
+
+    try {
+      await updateHospitalBeds(hospital.id, parseInt(beds) || 0, inv);
+      setHospitals(hospitals.map(h => h.id === hospital.id ? { ...h, available_beds: parseInt(beds) || 0, blood_inventory: inv } : h));
+      alert("Hospital beds & inventory updated successfully!");
+    } catch (err) {
+      alert("Failed to update hospital info: " + err.message);
     }
   };
 
@@ -252,7 +267,10 @@ function AdminDashboard() {
                   <p><strong>Contact:</strong> {h.contact}</p>
                   <p><strong>Beds Available:</strong> {h.available_beds}</p>
                   <p><strong>Inventory:</strong> {h.blood_inventory || 'N/A'}</p>
-                  <button onClick={() => handleDeleteHospital(h.id)} className="delete-hospital-btn">Remove</button>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                    <button onClick={() => handleUpdateHospital(h)} className="action-btn allow" style={{ flex: 1 }}>Update Beds / Stock</button>
+                    <button onClick={() => handleDeleteHospital(h.id)} className="delete-hospital-btn" style={{ flex: 1, marginTop: 0 }}>Remove</button>
+                  </div>
                 </div>
               ))}
               {hospitals.length === 0 && <p>No hospitals added yet.</p>}
