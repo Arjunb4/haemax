@@ -6,19 +6,19 @@ import menu from '../assets/menu.png';
 import close from '../assets/close.png';
 import defaultProfilePic from '../assets/profile.webp'; 
 
-function Navbar() {
+function Navbar({ isAuthenticated, userRole }) {
   const location = useLocation();
   const navigate = useNavigate();
   const isNotHome = location.pathname !== '/';
   const [navMenu, setNavMenu] = useState(false);
   const [profilePic, setProfilePic] = useState(localStorage.getItem("profilePic") || null);
-  const [role, setRole] = useState(localStorage.getItem("role") || null);
+
+  const activeRole = userRole || localStorage.getItem("role");
 
   // Listen for localStorage changes
   useEffect(() => {
     const handleStorageChange = () => {
       setProfilePic(localStorage.getItem("profilePic"));
-      setRole(localStorage.getItem("role"));
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -27,6 +27,11 @@ function Navbar() {
       window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
+
+  // Update profilePic when component renders
+  useEffect(() => {
+    setProfilePic(localStorage.getItem("profilePic"));
+  }, [userRole, isAuthenticated]);
 
   const toggleMenu = () => {
     setNavMenu((prev) => !prev);
@@ -46,8 +51,7 @@ function Navbar() {
     localStorage.removeItem("profilePic");
     localStorage.removeItem("role");
     setProfilePic(null);
-    setRole(null);
-    window.dispatchEvent(new Event("storage")); // Dispatch event to notify App.jsx
+    window.dispatchEvent(new Event("storage"));
     navigate("/login");
   };
 
@@ -109,7 +113,7 @@ function Navbar() {
             Register Donor
           </span>
         </li>
-        {role === 'admin' && (
+        {activeRole === 'admin' && (
           <li>
             <span
               onClick={() => handleLinkClick('/admin')}
@@ -126,13 +130,13 @@ function Navbar() {
       </ul>
 
       {/* Show profile picture if logged in, otherwise show login button */}
-      {profilePic ? (
+      {isAuthenticated || profilePic ? (
         <div className="profile-container">
           <img
             src={profilePic || defaultProfilePic}
             alt="Profile"
             className="profile-pic"
-            onClick={() => navigate('/dashboard')} // Navigate to dashboard on click
+            onClick={() => navigate('/dashboard')}
             style={{ cursor: 'pointer' }}
           />
           <button className="logout-btn" onClick={handleLogout}>Logout</button>

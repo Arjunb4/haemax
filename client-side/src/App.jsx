@@ -20,68 +20,75 @@ import AdminDashboard from "./components/AdminDashboard";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState(localStorage.getItem("role") || null);
   const [loading, setLoading] = useState(true);
 
+  const fetchUserProfile = async (user) => {
+    if (!user) return null;
+    try {
+      let { data: profile } = await supabase
+        .from("profiles")
+        .select("role, profile_pic, status")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const isSpecialAdmin = user.email?.toLowerCase().trim() === "arjunbb441@gmail.com";
+
+      if (!profile) {
+        const meta = user.user_metadata || {};
+        const newProfile = {
+          id: user.id,
+          fname: meta.fname || meta.given_name || meta.full_name?.split(" ")[0] || "User",
+          lname: meta.lname || meta.family_name || meta.full_name?.split(" ").slice(1).join(" ") || "",
+          phone: meta.phone || "Not Provided",
+          profile_pic: meta.avatar_url || "",
+          role: isSpecialAdmin ? "admin" : "user",
+          status: "active"
+        };
+        await supabase.from("profiles").insert(newProfile);
+        profile = newProfile;
+      } else if (isSpecialAdmin && profile.role !== "admin") {
+        await supabase.from("profiles").update({ role: "admin" }).eq("id", user.id);
+        profile.role = "admin";
+      }
+
+      const role = profile.role || "user";
+      const pic = profile.profile_pic || "";
+      localStorage.setItem("role", role);
+      localStorage.setItem("profilePic", pic);
+      setUserRole(role);
+      return role;
+    } catch (err) {
+      console.error("Error fetching user profile:", err);
+    }
+    return "user";
+  };
+
   useEffect(() => {
-    // Check for existing Supabase session on load
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check for existing session on load
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         setIsAuthenticated(true);
         localStorage.setItem("token", session.access_token);
-        // Fetch role from profiles
-        supabase
-          .from("profiles")
-          .select("role, profile_pic, status")
-          .eq("id", session.user.id)
-          .maybeSingle()
-          .then(({ data }) => {
-            if (data) {
-              localStorage.setItem("role", data.role || "user");
-              localStorage.setItem("profilePic", data.profile_pic || "");
-            }
-          });
+        await fetchUserProfile(session.user);
       } else {
         setIsAuthenticated(false);
+        setUserRole(null);
       }
       setLoading(false);
     });
 
-    // Listen for auth state changes (login, logout, OAuth callback)
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session) {
           setIsAuthenticated(true);
           localStorage.setItem("token", session.access_token);
-          if (event === "SIGNED_IN") {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("role, profile_pic, status, fname")
-              .eq("id", session.user.id)
-              .maybeSingle();
-
-            if (!profile) {
-              const meta = session.user.user_metadata || {};
-              const newProfile = {
-                id: session.user.id,
-                fname: meta.fname || meta.given_name || meta.full_name?.split(" ")[0] || "User",
-                lname: meta.lname || meta.family_name || meta.full_name?.split(" ").slice(1).join(" ") || "",
-                phone: meta.phone || "Not Provided",
-                profile_pic: meta.avatar_url || "",
-                role: "user",
-                status: "active"
-              };
-              // It's possible `api.js` login already inserted it so we ignore errors here
-              await supabase.from("profiles").insert(newProfile);
-              localStorage.setItem("role", "user");
-              localStorage.setItem("profilePic", newProfile.profile_pic);
-            } else {
-              localStorage.setItem("role", profile.role || "user");
-              localStorage.setItem("profilePic", profile.profile_pic || "");
-            }
-            window.dispatchEvent(new Event("storage"));
-          }
+          const role = await fetchUserProfile(session.user);
+          setUserRole(role);
         } else {
           setIsAuthenticated(false);
+          setUserRole(null);
           localStorage.removeItem("token");
           localStorage.removeItem("role");
           localStorage.removeItem("profilePic");
@@ -98,6 +105,7 @@ function App() {
     localStorage.removeItem("role");
     localStorage.removeItem("profilePic");
     setIsAuthenticated(false);
+    setUserRole(null);
   };
 
   const ProtectedRoute = ({ element }) => {
@@ -105,15 +113,15 @@ function App() {
   };
 
   const AdminRoute = ({ element }) => {
-    const role = localStorage.getItem("role");
-    return isAuthenticated && role === "admin" ? element : <Navigate to="/" />;
+    const activeRole = userRole || localStorage.getItem("role");
+    return isAuthenticated && activeRole === "admin" ? element : <Navigate to="/" />;
   };
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '18px' }}>Loading...</div>;
 
   return (
     <BrowserRouter>
-      <Navbar isAuthenticated={isAuthenticated} onLogout={handleLogout} />
+      <Navbar isAuthenticated={isAuthenticated} userRole={userRole} onLogout={handleLogout} />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />

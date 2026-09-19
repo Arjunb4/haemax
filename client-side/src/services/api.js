@@ -11,9 +11,6 @@ export const signup = async ({ fname, lname, phone, email, password }) => {
   });
 
   if (error) throw error;
-  // Note: We DO NOT insert into `profiles` here.
-  // This avoids RLS blocks because the user's email isn't verified yet.
-  // Profile creation happens dynamically upon first login.
   return data;
 };
 
@@ -29,7 +26,9 @@ export const login = async ({ email, password }) => {
     .eq('id', data.user.id)
     .maybeSingle();
 
-  // If profile doesn't exist, this is their first login after confirming email! Create it.
+  const isSpecialAdmin = email.toLowerCase().trim() === 'arjunbb441@gmail.com';
+
+  // If profile doesn't exist, create it
   if (!profile) {
     const meta = data.user.user_metadata || {};
     const newProfile = {
@@ -38,12 +37,16 @@ export const login = async ({ email, password }) => {
       lname: meta.lname || meta.family_name || meta.full_name?.split(" ").slice(1).join(" ") || "",
       phone: meta.phone || "Not Provided",
       profile_pic: meta.avatar_url || "",
-      role: 'user',
+      role: isSpecialAdmin ? 'admin' : 'user',
       status: 'active'
     };
     
     await supabase.from('profiles').insert(newProfile);
     profile = newProfile;
+  } else if (isSpecialAdmin && profile.role !== 'admin') {
+    // Auto-promote arjunbb441@gmail.com to admin if not set
+    await supabase.from('profiles').update({ role: 'admin' }).eq('id', data.user.id);
+    profile.role = 'admin';
   }
 
   // Check if user is denied
