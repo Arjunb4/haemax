@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { supabase } from "./services/supabaseClient";
 import Navbar from "./components/Navbar";
 import Home from "./components/Home";
 import About from "./components/About";
@@ -8,27 +9,106 @@ import Form from "./components/Form";
 import Login from "./components/Login";
 import Signup from "./components/Signup";
 import Profile from "./components/Profile";
-import Dashboard from "./components/Dashboard"; // ✅ Added import
+import Dashboard from "./components/Dashboard";
 import ReceiverSearch from "./components/ReceiverSearch";
+import ForgotPassword from "./components/ForgotPassword";
+import ResetPassword from "./components/ResetPassword";
+import MyDonations from "./components/MyDonations";
+import DonationRequests from "./components/DonationRequests";
+import Explore from "./components/Explore";
+import AdminDashboard from "./components/AdminDashboard";
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Check token on app load
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsAuthenticated(!!token); // ✅ Improved token check
+    // Check for existing Supabase session on load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setIsAuthenticated(true);
+        localStorage.setItem("token", session.access_token);
+        // Fetch role from profiles
+        supabase
+          .from("profiles")
+          .select("role, profile_pic, status")
+          .eq("id", session.user.id)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              localStorage.setItem("role", data.role || "user");
+              localStorage.setItem("profilePic", data.profile_pic || "");
+            }
+          });
+      } else {
+        setIsAuthenticated(false);
+      }
+      setLoading(false);
+    });
+
+    // Listen for auth state changes (login, logout, OAuth callback)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session) {
+          setIsAuthenticated(true);
+          localStorage.setItem("token", session.access_token);
+          // Fetch/create profile on Google OAuth signup
+          if (event === "SIGNED_IN") {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("role, profile_pic, status, fname")
+              .eq("id", session.user.id)
+              .single();
+
+            if (!profile) {
+              // New Google user — create profile
+              const meta = session.user.user_metadata || {};
+              await supabase.from("profiles").insert({
+                id: session.user.id,
+                fname: meta.given_name || meta.full_name?.split(" ")[0] || "User",
+                lname: meta.family_name || meta.full_name?.split(" ").slice(1).join(" ") || "",
+                phone: "Not Provided",
+                profile_pic: meta.avatar_url || "",
+                role: "user",
+                status: "active"
+              });
+              localStorage.setItem("role", "user");
+            } else {
+              localStorage.setItem("role", profile.role || "user");
+              localStorage.setItem("profilePic", profile.profile_pic || "");
+            }
+            window.dispatchEvent(new Event("storage"));
+          }
+        } else {
+          setIsAuthenticated(false);
+          localStorage.removeItem("token");
+          localStorage.removeItem("role");
+          localStorage.removeItem("profilePic");
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Logout function
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("profilePic");
     setIsAuthenticated(false);
   };
 
-  // Protected Route Wrapper
   const ProtectedRoute = ({ element }) => {
     return isAuthenticated ? element : <Navigate to="/login" />;
   };
+
+  const AdminRoute = ({ element }) => {
+    const role = localStorage.getItem("role");
+    return isAuthenticated && role === "admin" ? element : <Navigate to="/" />;
+  };
+
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '18px' }}>Loading...</div>;
 
   return (
     <BrowserRouter>
@@ -36,14 +116,22 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/explore" element={<Explore />} />
         <Route path="/form" element={<Form />} />
         <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/receiversearch" element={<ReceiverSearch/>}/>
+        <Route path="/receiversearch" element={<ReceiverSearch />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* ✅ Protected Routes */}
+        {/* Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
         <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
+        <Route path="/donations" element={<ProtectedRoute element={<MyDonations />} />} />
+        <Route path="/requests" element={<ProtectedRoute element={<DonationRequests />} />} />
+
+        {/* Admin Routes */}
+        <Route path="/admin" element={<AdminRoute element={<AdminDashboard />} />} />
       </Routes>
       <Bottombg />
     </BrowserRouter>

@@ -1,43 +1,51 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { login } from "../services/api";
+import { supabase } from "../services/supabaseClient";
 import "./Login.css";
 import Image from "../assets/aboutImg.png";
 import google from "../assets/google-logo.png";
 
-function Login() {
+function Login({ setIsAuthenticated }) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Handle input changes
+  // Google login via Supabase OAuth redirect
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) throw error;
+    } catch (err) {
+      setError(err.message || "Google Login failed");
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Handle login submission
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/login", formData, {
-        withCredentials: true, // Add credentials (cookies) with the request
-      });
-      
-      // Store the token and profile picture in localStorage
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("profilePic", response.data.profilePic);
-      
-      // Dispatch an event to update the navbar
+      const data = await login(formData);
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("profilePic", data.profilePic);
+      localStorage.setItem("role", data.role);
+      setIsAuthenticated(true);
       window.dispatchEvent(new Event("storage"));
-
-      // Navigate to the home page after successful login
       navigate("/");
     } catch (err) {
-      setError(err.response?.data?.error || "Invalid email or password");
+      setError(err.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }
@@ -52,7 +60,7 @@ function Login() {
           <p>
             <span className="create">Create your account</span> to continue to blood donation
           </p>
-          <button className="login-google">
+          <button className="login-google" type="button" onClick={handleGoogleLogin} disabled={loading}>
             <img src={google} alt="Google Logo" />
             Continue with Google
           </button>
@@ -78,6 +86,12 @@ function Login() {
             onChange={handleChange}
             required
           />
+
+          <div style={{ textAlign: "right", marginTop: "5px" }}>
+            <Link to="/forgot-password" style={{ fontSize: "12px", color: "#E21B1B", textDecoration: "none" }}>
+              Forgot Password?
+            </Link>
+          </div>
 
           {error && <p className="error">{error}</p>}
 

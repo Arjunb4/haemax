@@ -1,0 +1,148 @@
+.donations-container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.donations-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.donations-header h2 {
+  color: #E21B1B;
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.donations-header p {
+  color: #666;
+  font-size: 16px;
+}
+
+.loading-state {
+  text-align: center;
+  font-size: 18px;
+  color: #555;
+  margin-top: 50px;
+}
+
+.error-message {
+  background: #fce8e6;
+  color: #d93025;
+  padding: 15px;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* No Donations Card */
+.no-donations-card {
+  background: white;
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  border: 1px dashed #ccc;
+}
+
+.no-donations-card .icon {
+  font-size: 50px;
+  margin-bottom: 15px;
+}
+
+.no-donations-card h3 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.no-donations-card p {
+  color: #666;
+  margin-bottom: 25px;
+}
+
+.register-btn {
+  display: inline-block;
+  background: #E21B1B;
+  color: white;
+  padding: 12px 25px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.register-btn:hover {
+  background: #c81616;
+}
+
+/* Donation Record Card */
+.donation-record-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: #fcfcfc;
+  border-bottom: 1px solid #eee;
+}
+
+.record-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.status-badge.active {
+  background: #e6f4ea;
+  color: #1e8e3e;
+}
+
+.status-badge.inactive {
+  background: #fce8e6;
+  color: #d93025;
+}
+
+.record-details {
+  padding: 20px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-item .label {
+  color: #888;
+  font-weight: 500;
+}
+
+.detail-item .value {
+  color: #333;
+  font-weight: 600;
+  text-align: right;
+}
+
+.detail-item .blood-group {
+  color: #E21B1B;
+  font-size: 18px;
+}

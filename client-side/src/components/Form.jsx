@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { registerDonor } from '../services/donorService';
 import './Form.css';
 
 function Form() {
@@ -8,7 +9,7 @@ function Form() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      navigate("/login"); // Redirect to login if not authenticated
+      navigate("/login");
     }
   }, [navigate]);
 
@@ -24,6 +25,8 @@ function Form() {
     district: '',
     lastDonatedDate: ''
   });
+
+  const [isFirstDonation, setIsFirstDonation] = useState(false);
 
   const [healthConditions, setHealthConditions] = useState({
     smoking: false,
@@ -42,27 +45,30 @@ function Form() {
     }
   };
 
+  const handleFirstDonationChange = (e) => {
+    const checked = e.target.checked;
+    setIsFirstDonation(checked);
+    if (checked) {
+      setFormData((prev) => ({ ...prev, lastDonatedDate: '' }));
+    }
+  };
+
   const calculateAge = (dob) => {
     const birthDate = new Date(dob);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-
     return age;
   };
 
   const checkLastDonatedDate = (lastDonatedDate) => {
     if (!lastDonatedDate) return true;
-  
     const lastDonation = new Date(lastDonatedDate);
-    const today = new Date();
     const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(today.getMonth() - 3);
-  
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
     return lastDonation <= threeMonthsAgo;
   };
 
@@ -86,42 +92,18 @@ function Form() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/donors', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit form');
-      }
-
+      await registerDonor(formData);
       alert("Form submitted successfully!");
-      navigate('/'); 
+      navigate('/');
 
       setFormData({
-        name: '',
-        phone: '',
-        email: '',
-        blood_type: '',
-        gender: '',
-        weight: '',
-        dob: '',
-        city: '',
-        district: '',
-        lastDonatedDate: ''
+        name: '', phone: '', email: '', blood_type: '', gender: '',
+        weight: '', dob: '', city: '', district: '', lastDonatedDate: ''
       });
-
+      setIsFirstDonation(false);
       setHealthConditions({
-        smoking: false,
-        alcoholic: false,
-        pregnant: false,
-        breastfeeding: false,
-        hivAids: false,
+        smoking: false, alcoholic: false, pregnant: false, breastfeeding: false, hivAids: false,
       });
-
     } catch (error) {
       console.error('Error submitting form:', error);
       alert("Error submitting form. Please try again.");
@@ -174,8 +156,24 @@ function Form() {
         <label htmlFor="city">City:</label>
         <input type="text" id="city" name="city" placeholder="City" value={formData.city} onChange={handleChange} required />
 
-        <label htmlFor="lastDonatedDate">Last Donated:</label>
-        <input type="date" id="lastDonatedDate" name="lastDonatedDate" value={formData.lastDonatedDate} onChange={handleChange} />
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', fontWeight: 'normal', gap: '8px' }}>
+            <input
+              type="checkbox"
+              checked={isFirstDonation}
+              onChange={handleFirstDonationChange}
+              style={{ width: 'auto', marginTop: '0' }}
+            />
+            This is my first time donating blood
+          </label>
+        </div>
+
+        {!isFirstDonation && (
+          <>
+            <label htmlFor="lastDonatedDate">Last Donated:</label>
+            <input type="date" id="lastDonatedDate" name="lastDonatedDate" value={formData.lastDonatedDate} onChange={handleChange} />
+          </>
+        )}
 
         <div className="topping">
           <label><input type="checkbox" name="smoking" checked={healthConditions.smoking} onChange={handleChange} /> Smoking</label>

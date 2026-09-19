@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios"; // Import axios
+import { getProfile, updateProfile } from "../services/profileService";
 import "./Profile.css";
 import { FaUserEdit, FaEnvelope, FaPhone, FaTint, FaCalendarAlt, FaCheck, FaTimes, FaCamera } from "react-icons/fa";
 
@@ -12,26 +12,15 @@ function Profile() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const token = localStorage.getItem("token"); // Ensure user is authenticated
-        console.log("Token:", token);  // Log token for debugging
-        const response = await axios.get("http://localhost:5000/api/profile", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-  
-        if (response.data) {
-          setUser(response.data);
-          setUpdatedUser(response.data); // Set initial values for editing
-        }
+        const data = await getProfile();
+        setUser(data);
+        setUpdatedUser(data);
       } catch (error) {
-        console.error("Error fetching profile:", error);  // Log the error
+        console.error("Error fetching profile:", error);
       }
     };
-  
     fetchUserProfile();
   }, []);
-  
 
   const handleEdit = () => setIsEditing(true);
 
@@ -43,21 +32,19 @@ function Profile() {
 
   const handleSave = async () => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.put("http://localhost:5000/api/profile", updatedUser, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const payload = {
+        ...updatedUser,
+        profilePic: selectedImage || updatedUser.profilePic
+      };
 
-      if (selectedImage) {
-        setUpdatedUser((prev) => ({ ...prev, profileImage: selectedImage }));
-      }
+      await updateProfile(payload);
 
-      setUser(updatedUser);
+      setUser(payload);
+      setUpdatedUser(payload);
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating profile:", error);
+      alert("Failed to update profile. Please try again.");
     }
   };
 
@@ -87,13 +74,26 @@ function Profile() {
           <div className="profile-photo-section">
             <label htmlFor="profileImage" className="profile-photo">
               <img src={selectedImage || user.profilePic || "https://via.placeholder.com/150"} alt="Profile" />
-              {isEditing && <FaCamera className="camera-icon" />}
+              {isEditing && (
+                <div className="upload-overlay">
+                  <FaCamera />
+                  <span>Upload Photo</span>
+                </div>
+              )}
             </label>
-            {isEditing && <input type="file" id="profileImage" accept="image/*" onChange={handleImageChange} />}
+            {isEditing && (
+              <input
+                type="file"
+                id="profileImage"
+                accept="image/*"
+                onChange={handleImageChange}
+                style={{ display: 'none' }}
+              />
+            )}
           </div>
 
-          <h2>{user.firstName} {user.lastName}</h2>
-          <p className="blood-group">Blood Group: <strong>{user.bloodGroup}</strong></p>
+          <h2>{user.fname} {user.lname}</h2>
+          <p className="blood-group">Blood Group: <strong>{user.bloodGroup || 'Not set'}</strong></p>
 
           <div className="donation-status">
             <FaCalendarAlt className="calendar-icon" />
@@ -108,19 +108,18 @@ function Profile() {
           <div className="profile-field">
             <label><FaUserEdit /> Name</label>
             {isEditing ? (
-              <input type="text" name="firstName" value={updatedUser.firstName} onChange={handleChange} />
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input type="text" name="fname" placeholder="First Name" value={updatedUser.fname || ''} onChange={handleChange} />
+                <input type="text" name="lname" placeholder="Last Name" value={updatedUser.lname || ''} onChange={handleChange} />
+              </div>
             ) : (
-              <p>{user.firstName} {user.lastName}</p>
+              <p>{user.fname} {user.lname}</p>
             )}
           </div>
 
           <div className="profile-field">
             <label><FaEnvelope /> Email</label>
-            {isEditing ? (
-              <input type="email" name="email" value={updatedUser.email} onChange={handleChange} />
-            ) : (
-              <p>{user.email}</p>
-            )}
+            <p>{user.email}</p>
           </div>
 
           <div className="profile-field">
@@ -129,6 +128,34 @@ function Profile() {
               <input type="text" name="phone" value={updatedUser.phone} onChange={handleChange} />
             ) : (
               <p>{user.phone}</p>
+            )}
+          </div>
+
+          <div className="profile-field">
+            <label><FaTint style={{ color: '#E21B1B' }} /> Blood Group</label>
+            {isEditing ? (
+              <select name="bloodGroup" value={updatedUser.bloodGroup || ""} onChange={handleChange}>
+                <option value="">Not set</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+              </select>
+            ) : (
+              <p>{user.bloodGroup || 'Not set'}</p>
+            )}
+          </div>
+
+          <div className="profile-field">
+            <label><FaCalendarAlt /> Last Donated Date</label>
+            {isEditing ? (
+              <input type="date" name="lastDonated" value={updatedUser.lastDonated && updatedUser.lastDonated !== 'Never' ? updatedUser.lastDonated : ''} onChange={handleChange} />
+            ) : (
+              <p>{user.lastDonated || 'Never'}</p>
             )}
           </div>
         </div>

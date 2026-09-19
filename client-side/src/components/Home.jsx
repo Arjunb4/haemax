@@ -53,7 +53,7 @@ function Home() {
         </div>
         <div className='section5'>
             <p>Explore donations available near me and hosptials to receive blood near me</p>
-            <button>Explore Now</button>
+            <Link to='/explore'><button>Explore Now</button></Link>
         </div>
         <div className="section6">
             <div className='heading'>How to donate?</div>

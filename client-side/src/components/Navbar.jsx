@@ -12,11 +12,13 @@ function Navbar() {
   const isNotHome = location.pathname !== '/';
   const [navMenu, setNavMenu] = useState(false);
   const [profilePic, setProfilePic] = useState(localStorage.getItem("profilePic") || null);
+  const [role, setRole] = useState(localStorage.getItem("role") || null);
 
   // Listen for localStorage changes
   useEffect(() => {
     const handleStorageChange = () => {
       setProfilePic(localStorage.getItem("profilePic"));
+      setRole(localStorage.getItem("role"));
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -42,7 +44,10 @@ function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("profilePic");
+    localStorage.removeItem("role");
     setProfilePic(null);
+    setRole(null);
+    window.dispatchEvent(new Event("storage")); // Dispatch event to notify App.jsx
     navigate("/login");
   };
 
@@ -73,6 +78,17 @@ function Navbar() {
         </li>
         <li>
           <span
+            onClick={() => handleLinkClick('/explore')}
+            style={{
+              cursor: 'pointer',
+              color: location.pathname !== '/' ? 'rgba(252, 70, 70, 0.8)' : '#fefefe',
+            }}
+          >
+            Explore
+          </span>
+        </li>
+        <li>
+          <span
             onClick={() => handleLinkClick('/about')}
             style={{
               cursor: 'pointer',
@@ -93,6 +109,20 @@ function Navbar() {
             Register Donor
           </span>
         </li>
+        {role === 'admin' && (
+          <li>
+            <span
+              onClick={() => handleLinkClick('/admin')}
+              style={{
+                cursor: 'pointer',
+                color: location.pathname === '/admin' ? '#fefefe' : 'rgba(252, 70, 70, 0.8)',
+                fontWeight: 'bold'
+              }}
+            >
+              Admin Panel
+            </span>
+          </li>
+        )}
       </ul>
 
       {/* Show profile picture if logged in, otherwise show login button */}

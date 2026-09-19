@@ -31,4 +31,20 @@ router.post("/", async (req, res) => {
   }
 });
 
+// GET route to fetch all receivers
+router.get("/", async (req, res) => {
+  try {
+    const query = `
+      SELECT id, name, phone, blood_type, district, city, created_at
+      FROM receivers
+      ORDER BY created_at DESC
+    `;
+    const [receivers] = await pool.query(query);
+    res.json(receivers);
+  } catch (error) {
+    console.error("Fetch Receivers Error:", error.message);
+    res.status(500).json({ error: "Server error", details: error.message });
+  }
+});
+
 module.exports = router;

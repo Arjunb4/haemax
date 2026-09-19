@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { searchDonors } from '../services/donorService';
+import { storeReceiver } from '../services/receiverService';
 import './ReceiverSearch.css';
 
 function ReceiverSearch() {
@@ -17,7 +19,7 @@ function ReceiverSearch() {
   const [donors, setDonors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   // Ref to store debounce timeout id
   const debounceTimeout = useRef(null);
 
@@ -47,26 +49,18 @@ function ReceiverSearch() {
   };
 
   // Function to store receiver details in the receiver table
-  const storeReceiver = async () => {
+  const handleStoreReceiver = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/receivers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: receiver.name.trim(),
-          phone: receiver.phone.trim(),
-          blood_type: searchParams.blood_type.trim(),
-          district: searchParams.district.trim(),
-          city: searchParams.city.trim()
-        })
+      await storeReceiver({
+        name: receiver.name.trim(),
+        phone: receiver.phone.trim(),
+        blood_type: searchParams.blood_type.trim(),
+        district: searchParams.district.trim(),
+        city: searchParams.city.trim()
       });
-      if (!response.ok) {
-        throw new Error('Failed to store receiver data');
-      }
       console.log('Receiver data stored successfully.');
     } catch (err) {
       console.error('Receiver storage error:', err);
-      // You might choose to set an error here, or proceed regardless
     }
   };
 
@@ -76,36 +70,30 @@ function ReceiverSearch() {
       setError("Please enter your name and phone number before searching.");
       return;
     }
-    
+
     setLoading(true);
     setError('');
-    
+
     // First, store receiver details to the receiver table
-    await storeReceiver();
-    
-    // Build URL with encoded and trimmed query parameters
-    const url = `http://localhost:5000/api/donors/search?blood_type=${encodeURIComponent(searchParams.blood_type.trim())}&district=${encodeURIComponent(searchParams.district.trim())}&city=${encodeURIComponent(searchParams.city.trim())}`;
-    console.log("Fetching URL:", url);
-    
+    await handleStoreReceiver();
+
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        if (response.status === 404) {
-          setDonors([]);
-          setError("No donors found");
-        } else {
-          throw new Error('Failed to fetch donors');
-        }
+      const data = await searchDonors({
+        blood_type: searchParams.blood_type,
+        district: searchParams.district,
+        city: searchParams.city
+      });
+      if (data.length === 0) {
+        setDonors([]);
+        setError("No donors found");
       } else {
-        const data = await response.json();
-        console.log("Fetched Data:", data);
         setDonors(data);
       }
     } catch (err) {
       console.error("Search error:", err);
       setError(err.message);
     }
-    
+
     setLoading(false);
   };
 
@@ -114,7 +102,7 @@ function ReceiverSearch() {
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
     }
-    
+
     if (
       searchParams.blood_type.trim() !== '' &&
       searchParams.district.trim() !== '' &&
@@ -128,14 +116,14 @@ function ReceiverSearch() {
       // Clear donors if any search field is empty
       setDonors([]);
     }
-    
+
     return () => clearTimeout(debounceTimeout.current);
   }, [searchParams]);
-  
+
   return (
     <div className="search-container">
       <h2>Find Blood Donors</h2>
-      
+
       {/* Receiver Details Section */}
       <div className="receiver-details">
         <input
@@ -155,7 +143,7 @@ function ReceiverSearch() {
           required
         />
       </div>
-      
+
       {/* Donor Search Fields */}
       <select name="blood_type" value={searchParams.blood_type} onChange={handleSearchChange} required>
         <option value="" disabled>Select Blood Group</option>
@@ -165,30 +153,63 @@ function ReceiverSearch() {
       </select>
       <input type="text" name="district" placeholder="District" value={searchParams.district} onChange={handleSearchChange} required />
       <input type="text" name="city" placeholder="City" value={searchParams.city} onChange={handleSearchChange} required />
-      
+
       <button onClick={handleSearch} disabled={loading}>Search</button>
-      
+
       {loading && <p>Loading...</p>}
       {error && <p className="error">{error}</p>}
-      
+
       <ul className="donor-list">
         {donors.length > 0 ? (
           donors.map((donor) => (
             <li key={donor.id} className="donor-card">
-              <img
-                className="donor-profile"
-                src={donor.profile_pic || '/default-profile.png'}
-                alt={donor.name}
-              />
-              <div className="donor-info">
-                <h3>{donor.name}</h3>
-                <p>Age: {calculateAge(donor.dob)}</p>
-                <p>{donor.phone}</p>
+              <div className="card-header">
+                <img
+                  className="donor-profile"
+                  src={donor.profilePic || 'https://via.placeholder.com/150'}
+                  alt={donor.name}
+                  onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150"; }}
+                />
+                <div className="donor-name-group">
+                  <h3>{donor.name}</h3>
+                  <span className="blood-group-badge">{donor.blood_type}</span>
+                </div>
+                {/* Note: In database schema, availability is TINYINT(1) where 1 is true. So donor.availability might be 1 or 0 */}
+                <div className={`availability-badge ${donor.availability ? 'available' : 'unavailable'}`}>
+                  {donor.availability ? 'Available' : 'Unavailable'}
+                </div>
+              </div>
+              <div className="card-body">
+                <div className="info-grid">
+                  <div className="info-item">
+                    <span className="info-label">Age</span>
+                    <span className="info-value">{calculateAge(donor.dob)}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Gender</span>
+                    <span className="info-value" style={{ textTransform: 'capitalize' }}>{donor.gender || 'N/A'}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Weight</span>
+                    <span className="info-value">{donor.weight ? `${donor.weight} kg` : 'N/A'}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Last Donated</span>
+                    <span className="info-value">
+                      {donor.lastDonatedDate
+                        ? new Date(donor.lastDonatedDate).toLocaleDateString()
+                        : 'First Donation'}
+                    </span>
+                  </div>
+                </div>
+                <div className="contact-info">
+                  📞 {donor.phone}
+                </div>
               </div>
             </li>
           ))
         ) : (
-          !loading && <p>No donors found</p>
+          !loading && <p className="no-results">No donors found. Please try a different location or blood group.</p>
         )}
       </ul>
     </div>

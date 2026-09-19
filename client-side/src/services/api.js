@@ -1,49 +1,83 @@
-import axios from "axios";
+import { supabase } from './supabaseClient';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api/auth"; // ✅ Supports env variable for deployment
-
-// ✅ Get Token from localStorage (Reusable Function)
-const getToken = () => localStorage.getItem("token");
-
-// ✅ Signup Function
-export const signup = async (userData) => {
-  try {
-    const response = await axios.post(`${API_BASE_URL}/signup`, userData);
-    return response.data;
-  } catch (error) {
-    console.error("Signup Error:", error.response?.data || error.message);
-    return error.response?.data || { error: "Something went wrong" };
-  }
-};
-
-// ✅ Login Function
-export const login = async (userData) => {
-  try {
-    const response = await axios.post(`${API_BASE_URL}/login`, userData);
-    if (response.data.token) {
-      localStorage.setItem("token", response.data.token); // ✅ Store token on login
+// ✅ Signup
+export const signup = async ({ fname, lname, phone, email, password }) => {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { fname, lname, phone }
     }
-    return response.data;
-  } catch (error) {
-    console.error("Login Error:", error.response?.data || error.message);
-    return error.response?.data || { error: "Invalid credentials" };
-  }
-};
+  });
 
-// ✅ Logout Function
-export const logout = () => {
-  localStorage.removeItem("token"); // ✅ Clear token on logout
-};
+  if (error) throw error;
 
-// ✅ Fetch Protected Data with Auth Header
-export const fetchProtectedData = async () => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/protected`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
+  // Insert profile row
+  if (data.user) {
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: data.user.id,
+      fname,
+      lname,
+      phone,
+      role: 'user',
+      status: 'active'
     });
-    return response.data;
-  } catch (error) {
-    console.error("Protected Route Error:", error.response?.data || error.message);
-    return error.response?.data || { error: "Unauthorized" };
+    if (profileError) console.error('Profile insert error:', profileError.message);
   }
+
+  return data;
+};
+
+// ✅ Login
+export const login = async ({ email, password }) => {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+
+  // Check if user is denied
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('status, role, profile_pic')
+    .eq('id', data.user.id)
+    .single();
+
+  if (profile?.status === 'denied') {
+    await supabase.auth.signOut();
+    throw new Error('Your account has been deactivated. Please contact support.');
+  }
+
+  // Store in localStorage for convenience
+  localStorage.setItem('token', data.session.access_token);
+  localStorage.setItem('role', profile?.role || 'user');
+  localStorage.setItem('profilePic', profile?.profile_pic || '');
+
+  return {
+    token: data.session.access_token,
+    role: profile?.role || 'user',
+    profilePic: profile?.profile_pic || ''
+  };
+};
+
+// ✅ Google Login — opens Supabase OAuth redirect
+export const googleLogin = async () => {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin
+    }
+  });
+  if (error) throw error;
+};
+
+// ✅ Logout
+export const logout = async () => {
+  await supabase.auth.signOut();
+  localStorage.removeItem('token');
+  localStorage.removeItem('role');
+  localStorage.removeItem('profilePic');
+};
+
+// ✅ Get current session
+export const getSession = async () => {
+  const { data } = await supabase.auth.getSession();
+  return data.session;
 };

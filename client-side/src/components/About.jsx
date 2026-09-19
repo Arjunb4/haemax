@@ -1,5 +1,7 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import './About.css'
+
 import aboutImg from '../assets/aboutImg.png'
 function About() {
   return (
@@ -15,7 +17,7 @@ function About() {
         </div>
         <div className='section5'>
             <p>Explore donations available near me and hosptials to receive blood near me</p>
-            <button>Explore Now</button>
+            <Link to='/explore'><button>Explore Now</button></Link>
         </div>
     </div>
   )

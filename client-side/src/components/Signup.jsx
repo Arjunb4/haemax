@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { signup } from "../services/api";
+import { supabase } from "../services/supabaseClient";
 import "./Signup.css";
 import google from "../assets/google-logo.png";
 
@@ -19,18 +20,29 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
 
-  // Handle input change
+  const handleGoogleSignup = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) throw error;
+    } catch (err) {
+      setError(err.message || "Google Signup failed");
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    // Validation checks
     if (formData.password !== formData.confirmPassword) {
       return setError("Passwords do not match");
     }
@@ -40,7 +52,7 @@ const Signup = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/signup", {
+      await signup({
         fname: formData.fname,
         lname: formData.lname,
         phone: formData.phone,
@@ -48,10 +60,10 @@ const Signup = () => {
         password: formData.password,
       });
 
-      setSuccess("Signup successful! Redirecting...");
-      setTimeout(() => navigate("/login"), 2000);
+      setSuccess("Signup successful! Please check your email to confirm your account, then login.");
+      setTimeout(() => navigate("/login"), 3000);
     } catch (err) {
-      setError(err.response?.data?.error || "Signup failed. Please try again.");
+      setError(err.message || "Signup failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -63,7 +75,7 @@ const Signup = () => {
         <p>
           <span>Create your account</span> to continue to blood donation
         </p>
-        <button>
+        <button type="button" onClick={handleGoogleSignup} disabled={loading}>
           <img src={google} alt="Google logo" /> Sign up with Google
         </button>
       </div>
