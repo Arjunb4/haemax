@@ -52,7 +52,7 @@ const Signup = () => {
 
     setLoading(true);
     try {
-      await signup({
+      const res = await signup({
         fname: formData.fname,
         lname: formData.lname,
         phone: formData.phone,
@@ -60,8 +60,13 @@ const Signup = () => {
         password: formData.password,
       });
 
-      setSuccess("Signup successful! Please check your email to confirm your account, then login.");
-      setTimeout(() => navigate("/login"), 3000);
+      if (res?.session) {
+        setSuccess("Signup successful! Redirecting to login...");
+        setTimeout(() => navigate("/login"), 1500);
+      } else {
+        setSuccess("Signup successful! Please check your email inbox (and Spam folder) to confirm your account.");
+        setTimeout(() => navigate("/login"), 4000);
+      }
     } catch (err) {
       setError(err.message || "Signup failed. Please try again.");
     } finally {

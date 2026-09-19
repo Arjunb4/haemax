@@ -11,6 +11,21 @@ export const signup = async ({ fname, lname, phone, email, password }) => {
   });
 
   if (error) throw error;
+
+  // Create initial profile record if user object is returned
+  if (data?.user) {
+    const isSpecialAdmin = email.toLowerCase().trim() === 'arjunbb441@gmail.com';
+    await supabase.from('profiles').upsert({
+      id: data.user.id,
+      fname,
+      lname,
+      phone: phone || "Not Provided",
+      profile_pic: "",
+      role: isSpecialAdmin ? 'admin' : 'user',
+      status: 'active'
+    }, { onConflict: 'id' });
+  }
+
   return data;
 };
 
