@@ -48,7 +48,8 @@ function AdminDashboard() {
         setDonors(data);
       }
     } catch (err) {
-      setError("Failed to load data. Please ensure you have admin privileges.");
+      console.error("Admin fetch error:", err);
+      setError(`Failed to load data: ${err.message || 'Please ensure you have admin privileges and your Supabase keys are configured correctly.'}`);
     } finally {
       setLoading(false);
     }
@@ -68,8 +69,10 @@ function AdminDashboard() {
     try {
       await updateDonorStatus(donorId, newStatus);
       setDonors(donors.map(d => d.id === donorId ? { ...d, status: newStatus } : d));
+      alert(`Donor ${newStatus === 'approved' ? 'approved' : 'rejected'} successfully!`);
     } catch (err) {
-      alert("Failed to update donor status.");
+      console.error("Donor approval error:", err);
+      alert(`Failed to update donor status: ${err.message || 'Check your admin privileges and Supabase RLS policies.'}`);
     }
   };
 

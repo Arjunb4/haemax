@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import './Navbar.css';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../services/supabaseClient';
 import tt from '../assets/testtube.png';
 import menu from '../assets/menu.png';
 import close from '../assets/close.png';
 import defaultProfilePic from '../assets/profile.webp'; 
 
-function Navbar({ isAuthenticated, userRole }) {
+function Navbar({ isAuthenticated, userRole, onLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
   const isNotHome = location.pathname !== '/';
@@ -46,13 +47,15 @@ function Navbar({ isAuthenticated, userRole }) {
     setNavMenu(false);
   }, [location]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("profilePic");
-    localStorage.removeItem("role");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('token');
+    localStorage.removeItem('profilePic');
+    localStorage.removeItem('role');
     setProfilePic(null);
-    window.dispatchEvent(new Event("storage"));
-    navigate("/login");
+    window.dispatchEvent(new Event('storage'));
+    if (onLogout) onLogout();
+    navigate('/');
   };
 
   return (

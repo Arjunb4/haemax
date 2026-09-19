@@ -1,6 +1,7 @@
 .signup-container{
-    margin:2% 3%;
+    margin:2% auto;
     max-width:520px;
+    width: 92%;
     display: flex;
     align-self: center;
     padding:40px 40px;
@@ -11,6 +12,7 @@
     flex-direction: column;
     border-radius: 8px;
     box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    background: #fff;
     .sig1{
         display: flex;
         flex-direction: column;
@@ -30,11 +32,17 @@
         padding:7px 15px;
         border-radius: 4px;
         border:1px solid grey;
+        cursor: pointer;
+        transition: background 0.2s, box-shadow 0.2s;
         img{
             width:30px;
             height:30px;
             margin:0 6px;
         }
+    }
+    .sig1 button:hover {
+        background-color: #f5f5f5;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     .sig2{
         display: flex;
@@ -65,3 +73,27 @@
         }
     }
 }
+
+@media (max-width: 768px) {
+    .signup-container {
+        margin: 5% auto;
+        padding: 30px 20px;
+        width: 92%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+}
+
+@media (max-width: 480px) {
+    .signup-container {
+        padding: 25px 16px;
+        margin: 5% auto;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .signup-container .sig2 .signup input {
+        font-size: 0.95rem;
+        padding: 8px 10px;
+    }
+}
+

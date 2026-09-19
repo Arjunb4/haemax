@@ -6,7 +6,7 @@ import "./Login.css";
 import Image from "../assets/aboutImg.png";
 import google from "../assets/google-logo.png";
 
-function Login({ setIsAuthenticated }) {
+function Login({ setIsAuthenticated, setUserRole }) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -42,8 +42,10 @@ function Login({ setIsAuthenticated }) {
       localStorage.setItem("profilePic", data.profilePic);
       localStorage.setItem("role", data.role);
       setIsAuthenticated(true);
+      if (setUserRole) setUserRole(data.role);
       window.dispatchEvent(new Event("storage"));
-      navigate("/");
+      // Navigate to admin panel if admin, else home
+      navigate(data.role === 'admin' ? '/admin' : '/');
     } catch (err) {
       setError(err.message || "Invalid email or password");
     } finally {

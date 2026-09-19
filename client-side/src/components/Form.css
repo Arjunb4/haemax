@@ -74,12 +74,26 @@
   padding: 0;
 }
 
-@media (max-width:768px){
-  .article{
+@media (max-width: 768px) {
+  .article {
     padding: 4% 0%;
-    form{
-      min-width: 450px;
-      padding: 4% 2%;
-    }
+  }
+  .article form {
+    min-width: unset;
+    width: 100%;
+    padding: 4% 5%;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 480px) {
+  .article p {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+  .article form input,
+  .article form select {
+    font-size: 1rem;
+    height: 48px;
   }
 }

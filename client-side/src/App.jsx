@@ -127,7 +127,7 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/form" element={<Form />} />
-        <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
+        <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} setUserRole={setUserRole} />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/receiversearch" element={<ReceiverSearch />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />

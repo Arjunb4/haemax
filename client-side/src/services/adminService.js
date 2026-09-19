@@ -1,26 +1,14 @@
 import { supabase } from './supabaseClient';
 
-// ✅ Get all users (admin only)
+// ✅ Get all users (admin only) - fetches from profiles table
 export const getAllUsers = async () => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, fname, lname, phone, profile_pic, role, status, created_at, auth_users!inner(email)')
+    .select('id, fname, lname, phone, profile_pic, role, status, created_at')
     .order('created_at', { ascending: false });
 
-  if (error) {
-    // Fallback: get profiles without auth join
-    const { data: fallback, error: fbError } = await supabase
-      .from('profiles')
-      .select('id, fname, lname, phone, profile_pic, role, status, created_at')
-      .order('created_at', { ascending: false });
-    if (fbError) throw fbError;
-    return (fallback || []).map(u => ({ ...u, email: '(see Supabase Auth)' }));
-  }
-
-  return (data || []).map(u => ({
-    ...u,
-    email: u.auth_users?.email || ''
-  }));
+  if (error) throw error;
+  return (data || []).map(u => ({ ...u, email: u.email || '' }));
 };
 
 // ✅ Toggle user status (active / denied)
