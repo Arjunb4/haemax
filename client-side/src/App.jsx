@@ -28,7 +28,7 @@ function App() {
     try {
       let { data: profile } = await supabase
         .from("profiles")
-        .select("role, profile_pic, status")
+        .select("role, profile_pic, status, email")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -38,6 +38,7 @@ function App() {
         const meta = user.user_metadata || {};
         const newProfile = {
           id: user.id,
+          email: user.email || "",
           fname: meta.fname || meta.given_name || meta.full_name?.split(" ")[0] || "User",
           lname: meta.lname || meta.family_name || meta.full_name?.split(" ").slice(1).join(" ") || "",
           phone: meta.phone || "Not Provided",
@@ -47,9 +48,14 @@ function App() {
         };
         await supabase.from("profiles").insert(newProfile);
         profile = newProfile;
-      } else if (isSpecialAdmin && profile.role !== "admin") {
-        await supabase.from("profiles").update({ role: "admin" }).eq("id", user.id);
-        profile.role = "admin";
+      } else {
+        if (!profile.email && user.email) {
+          await supabase.from("profiles").update({ email: user.email }).eq("id", user.id);
+        }
+        if (isSpecialAdmin && profile.role !== "admin") {
+          await supabase.from("profiles").update({ role: "admin" }).eq("id", user.id);
+          profile.role = "admin";
+        }
       }
 
       const role = profile.role || "user";

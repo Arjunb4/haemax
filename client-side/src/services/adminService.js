@@ -4,7 +4,7 @@ import { supabase } from './supabaseClient';
 export const getAllUsers = async () => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, fname, lname, phone, profile_pic, role, status, created_at')
+    .select('id, email, fname, lname, phone, profile_pic, role, status, created_at')
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -85,14 +85,19 @@ export const updateDonorStatus = async (id, status) => {
 };
 
 // ✅ Match donors and hospitals for a request
-export const getMatches = async ({ blood_type, district, city }) => {
+export const getMatches = async ({ blood_type = '', district = '', city = '' }) => {
+  let donorQuery = supabase
+    .from('donors')
+    .select('id, name, phone, email, city, district, availability, blood_type, gender')
+    .eq('availability', true)
+    .eq('status', 'approved');
+
+  if (blood_type && blood_type.trim() !== '') {
+    donorQuery = donorQuery.eq('blood_type', blood_type.trim().toUpperCase());
+  }
+
   const [{ data: donors }, { data: hospitals }] = await Promise.all([
-    supabase
-      .from('donors')
-      .select('id, name, phone, email, city, district, availability, blood_type, gender')
-      .eq('blood_type', blood_type)
-      .eq('availability', true)
-      .eq('status', 'approved'), // only match approved donors
+    donorQuery,
     supabase
       .from('hospitals')
       .select('id, name, location, contact, available_beds, blood_inventory')
@@ -100,9 +105,9 @@ export const getMatches = async ({ blood_type, district, city }) => {
 
   // Sort donors: prefer same city first, then same district
   const sorted = (donors || []).sort((a, b) => {
-    const aCity = a.city?.toLowerCase() === city?.toLowerCase() ? 0 : 1;
-    const bCity = b.city?.toLowerCase() === city?.toLowerCase() ? 0 : 1;
-    return aCity - bCity;
+    const aCityMatch = city && a.city?.toLowerCase().includes(city.toLowerCase()) ? 0 : 1;
+    const bCityMatch = city && b.city?.toLowerCase().includes(city.toLowerCase()) ? 0 : 1;
+    return aCityMatch - bCityMatch;
   });
 
   return { donors: sorted, hospitals: hospitals || [] };

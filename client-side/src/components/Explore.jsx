@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
+import { getDonorStats } from '../services/donorService';
 import './Explore.css';
 
 function Explore() {
@@ -375,15 +376,12 @@ out center;`;
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('http://localhost:5001/api/donors/stats');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            setStats(data);
-          }
+        const liveStats = await getDonorStats();
+        if (liveStats) {
+          setStats(liveStats);
         }
       } catch (err) {
-        console.warn("Could not fetch database stats, using mock fallbacks", err);
+        console.warn("Could not fetch database stats, using fallback", err);
       } finally {
         setLoadingStats(false);
       }

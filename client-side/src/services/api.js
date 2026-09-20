@@ -17,6 +17,7 @@ export const signup = async ({ fname, lname, phone, email, password }) => {
     const isSpecialAdmin = email.toLowerCase().trim() === 'arjunbb441@gmail.com';
     await supabase.from('profiles').upsert({
       id: data.user.id,
+      email: data.user.email || email,
       fname,
       lname,
       phone: phone || "Not Provided",
@@ -37,7 +38,7 @@ export const login = async ({ email, password }) => {
   // Gracefully check if profile exists
   let { data: profile } = await supabase
     .from('profiles')
-    .select('status, role, profile_pic')
+    .select('status, role, profile_pic, email')
     .eq('id', data.user.id)
     .maybeSingle();
 
@@ -48,6 +49,7 @@ export const login = async ({ email, password }) => {
     const meta = data.user.user_metadata || {};
     const newProfile = {
       id: data.user.id,
+      email: data.user.email || email,
       fname: meta.fname || meta.given_name || meta.full_name?.split(" ")[0] || "User",
       lname: meta.lname || meta.family_name || meta.full_name?.split(" ").slice(1).join(" ") || "",
       phone: meta.phone || "Not Provided",

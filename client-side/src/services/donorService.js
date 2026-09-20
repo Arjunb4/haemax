@@ -20,33 +20,68 @@ export const registerDonor = async (donorData) => {
     status: 'pending' // Requires admin approval
   });
   if (error) throw error;
+
+  // Update user profile record to stay in sync
+  try {
+    await supabase.from('profiles').update({
+      blood_group: donorData.blood_type,
+      last_donated: donorData.lastDonatedDate || 'Never',
+      phone: donorData.phone
+    }).eq('id', user.id);
+  } catch (profErr) {
+    console.warn('Could not sync profile data:', profErr);
+  }
+
   return { success: true, message: 'Donor registered successfully and is pending approval!' };
 };
 
 // ✅ Search donors by blood type, district, city (ONLY return 'approved')
-export const searchDonors = async ({ blood_type, district, city }) => {
-  const { data, error } = await supabase
+export const searchDonors = async ({ blood_type = '', district = '', city = '' }) => {
+  let query = supabase
     .from('donors')
     .select(`
       id, name, dob, phone, blood_type, city, district,
       availability, gender, weight, last_donated_date, status,
       profiles!donors_email_fkey(profile_pic)
-    `)
-    .eq('blood_type', blood_type.trim().toUpperCase())
-    .ilike('district', district.trim())
-    .ilike('city', city.trim())
-    .eq('status', 'approved'); // Only show approved donors
+    `);
+
+  if (blood_type && blood_type.trim() !== '') {
+    query = query.eq('blood_type', blood_type.trim().toUpperCase());
+  }
+
+  if (district && district.trim() !== '') {
+    query = query.ilike('district', `%${district.trim()}%`);
+  }
+
+  if (city && city.trim() !== '') {
+    query = query.ilike('city', `%${city.trim()}%`);
+  }
+
+  query = query.eq('status', 'approved');
+
+  const { data, error } = await query;
 
   if (error) {
     // Fallback without join if FK doesn't exist yet
-    const { data: fallback, error: fallbackErr } = await supabase
+    let fallbackQuery = supabase
       .from('donors')
-      .select('id, name, dob, phone, blood_type, city, district, availability, gender, weight, last_donated_date, status')
-      .eq('blood_type', blood_type.trim().toUpperCase())
-      .ilike('district', district.trim())
-      .ilike('city', city.trim())
-      .eq('status', 'approved'); // Only show approved donors
-      
+      .select('id, name, dob, phone, blood_type, city, district, availability, gender, weight, last_donated_date, status');
+
+    if (blood_type && blood_type.trim() !== '') {
+      fallbackQuery = fallbackQuery.eq('blood_type', blood_type.trim().toUpperCase());
+    }
+
+    if (district && district.trim() !== '') {
+      fallbackQuery = fallbackQuery.ilike('district', `%${district.trim()}%`);
+    }
+
+    if (city && city.trim() !== '') {
+      fallbackQuery = fallbackQuery.ilike('city', `%${city.trim()}%`);
+    }
+
+    fallbackQuery = fallbackQuery.eq('status', 'approved');
+
+    const { data: fallback, error: fallbackErr } = await fallbackQuery;
     if (fallbackErr) throw fallbackErr;
     return fallback || [];
   }
@@ -78,8 +113,7 @@ export const getMyDonations = async () => {
   return { ...data, lastDonatedDate: data?.last_donated_date };
 };
 
-// ✅ Get stats for home/explore page (count only approved donors?)
-// Usually we only count approved donors or it's up to you
+// ✅ Get stats for home/explore page (count only approved donors)
 export const getDonorStats = async () => {
   const { data: donorRows } = await supabase
     .from('donors')
@@ -103,3 +137,4 @@ export const getDonorStats = async () => {
 
   return { bloodGroups: stats, totalDonors: totalDonors || 0, totalReceivers: totalReceivers || 0 };
 };
+

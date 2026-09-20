@@ -4,38 +4,47 @@ import { storeReceiver } from '../services/receiverService';
 import './ReceiverSearch.css';
 
 function ReceiverSearch() {
-  // State for receiver details
-  const [receiver, setReceiver] = useState({
-    name: '',
-    phone: ''
-  });
-
   // State for donor search parameters
   const [searchParams, setSearchParams] = useState({
     blood_type: '',
     district: '',
     city: ''
   });
+
+  // State for receiver request submission
+  const [receiverForm, setReceiverForm] = useState({
+    name: '',
+    phone: '',
+    blood_type: '',
+    district: '',
+    city: ''
+  });
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState('');
+  const [requestError, setRequestError] = useState('');
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+
   const [donors, setDonors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [searched, setSearched] = useState(false);
 
   // Ref to store debounce timeout id
   const debounceTimeout = useRef(null);
 
-  // Handle changes for receiver details
-  const handleReceiverChange = (e) => {
-    const { name, value } = e.target;
-    setReceiver((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // Handle changes for search parameters
+  // Handle search field input
   const handleSearchChange = (e) => {
     const { name, value } = e.target;
     setSearchParams((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Helper function to calculate donor's age (if dob is provided)
+  // Handle receiver request form input
+  const handleReceiverFormChange = (e) => {
+    const { name, value } = e.target;
+    setReceiverForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Helper function to calculate donor's age
   const calculateAge = (dob) => {
     if (!dob) return 'N/A';
     const birthDate = new Date(dob);
@@ -45,120 +54,203 @@ function ReceiverSearch() {
     if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    return age;
+    return age > 0 ? age : 'N/A';
   };
 
-  // Function to store receiver details in the receiver table
-  const handleStoreReceiver = async () => {
-    try {
-      await storeReceiver({
-        name: receiver.name.trim(),
-        phone: receiver.phone.trim(),
-        blood_type: searchParams.blood_type.trim(),
-        district: searchParams.district.trim(),
-        city: searchParams.city.trim()
-      });
-      console.log('Receiver data stored successfully.');
-    } catch (err) {
-      console.error('Receiver storage error:', err);
-    }
-  };
-
-  const handleSearch = async () => {
-    // Validate that receiver details are filled
-    if (receiver.name.trim() === '' || receiver.phone.trim() === '') {
-      setError("Please enter your name and phone number before searching.");
-      return;
-    }
-
+  // Perform search for approved donors
+  const performSearch = async (params = searchParams) => {
     setLoading(true);
     setError('');
-
-    // First, store receiver details to the receiver table
-    await handleStoreReceiver();
+    setSearched(true);
 
     try {
       const data = await searchDonors({
-        blood_type: searchParams.blood_type,
-        district: searchParams.district,
-        city: searchParams.city
+        blood_type: params.blood_type,
+        district: params.district,
+        city: params.city
       });
-      if (data.length === 0) {
-        setDonors([]);
-        setError("No donors found");
-      } else {
-        setDonors(data);
+      setDonors(data || []);
+      if (!data || data.length === 0) {
+        setError('No approved donors found matching your search criteria.');
       }
     } catch (err) {
-      console.error("Search error:", err);
-      setError(err.message);
+      console.error('Search error:', err);
+      setError(err.message || 'Failed to search donors.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
-  // Debounce effect for donor search when search parameters change (if all fields are non-empty)
+  // Execute search on mount and when searchParams change (debounced)
   useEffect(() => {
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
     }
 
-    if (
-      searchParams.blood_type.trim() !== '' &&
-      searchParams.district.trim() !== '' &&
-      searchParams.city.trim() !== ''
-    ) {
-      debounceTimeout.current = setTimeout(() => {
-        console.log("Debounced search triggered with:", searchParams);
-        handleSearch();
-      }, 500);
-    } else {
-      // Clear donors if any search field is empty
-      setDonors([]);
-    }
+    debounceTimeout.current = setTimeout(() => {
+      performSearch(searchParams);
+    }, 400);
 
     return () => clearTimeout(debounceTimeout.current);
   }, [searchParams]);
 
+  // Submit receiver request to database
+  const handleStoreReceiver = async (e) => {
+    e.preventDefault();
+    if (!receiverForm.name.trim() || !receiverForm.phone.trim() || !receiverForm.blood_type) {
+      setRequestError('Please fill in your Name, Phone number, and Blood Group.');
+      return;
+    }
+
+    setSubmittingRequest(true);
+    setRequestError('');
+    setRequestSuccess('');
+
+    try {
+      await storeReceiver({
+        name: receiverForm.name.trim(),
+        phone: receiverForm.phone.trim(),
+        blood_type: receiverForm.blood_type.trim(),
+        district: receiverForm.district.trim(),
+        city: receiverForm.city.trim()
+      });
+
+      setRequestSuccess('🎉 Your blood request has been submitted successfully! Available donors and admins can now reach out to you.');
+      setReceiverForm({ name: '', phone: '', blood_type: '', district: '', city: '' });
+      setTimeout(() => setRequestSuccess(''), 6000);
+    } catch (err) {
+      console.error('Receiver storage error:', err);
+      setRequestError(err.message || 'Failed to submit request.');
+    } finally {
+      setSubmittingRequest(false);
+    }
+  };
+
   return (
     <div className="search-container">
-      <h2>Find Blood Donors</h2>
+      <h2>🩸 Find Approved Blood Donors</h2>
+      <p style={{ color: '#666', marginBottom: '20px' }}>
+        Search registered and approved blood donors by blood group, district, or city.
+      </p>
 
-      {/* Receiver Details Section */}
-      <div className="receiver-details">
-        <input
-          type="text"
-          name="name"
-          placeholder="Your Name"
-          value={receiver.name}
-          onChange={handleReceiverChange}
-          required
-        />
-        <input
-          type="tel"
-          name="phone"
-          placeholder="Your Phone Number"
-          value={receiver.phone}
-          onChange={handleReceiverChange}
-          required
-        />
+      {/* Search Filter Inputs */}
+      <div className="search-controls-box" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+        <div>
+          <label style={{ display: 'block', textAlignment: 'left', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>
+            Blood Group
+          </label>
+          <select name="blood_type" value={searchParams.blood_type} onChange={handleSearchChange}>
+            <option value="">All Blood Groups</option>
+            {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', textAlignment: 'left', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>
+            District
+          </label>
+          <input
+            type="text"
+            name="district"
+            placeholder="e.g. Salem or Chennai"
+            value={searchParams.district}
+            onChange={handleSearchChange}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', textAlignment: 'left', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>
+            City / Locality
+          </label>
+          <input
+            type="text"
+            name="city"
+            placeholder="e.g. Adyar or Meyyanur"
+            value={searchParams.city}
+            onChange={handleSearchChange}
+          />
+        </div>
       </div>
 
-      {/* Donor Search Fields */}
-      <select name="blood_type" value={searchParams.blood_type} onChange={handleSearchChange} required>
-        <option value="" disabled>Select Blood Group</option>
-        {["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"].map((type) => (
-          <option key={type} value={type}>{type}</option>
-        ))}
-      </select>
-      <input type="text" name="district" placeholder="District" value={searchParams.district} onChange={handleSearchChange} required />
-      <input type="text" name="city" placeholder="City" value={searchParams.city} onChange={handleSearchChange} required />
+      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '25px' }}>
+        <button onClick={() => performSearch()} disabled={loading} style={{ maxWidth: '250px' }}>
+          {loading ? 'Searching...' : '🔍 Search Donors'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowRequestForm(!showRequestForm)}
+          style={{ maxWidth: '280px', background: showRequestForm ? '#555' : '#10b981' }}
+        >
+          {showRequestForm ? 'Close Request Form' : '🚨 Post Urgent Blood Request'}
+        </button>
+      </div>
 
-      <button onClick={handleSearch} disabled={loading}>Search</button>
+      {/* Optional Urgent Blood Requirement Submission Form */}
+      {showRequestForm && (
+        <div className="urgent-request-form" style={{ background: '#fff5f5', border: '1px solid #feb2b2', padding: '20px', borderRadius: '8px', marginBottom: '30px', textAlign: 'left' }}>
+          <h3 style={{ color: '#c53030', marginTop: 0 }}>🚨 Post Urgent Blood Requirement</h3>
+          <p style={{ fontSize: '14px', color: '#4a5568' }}>
+            Can't find a donor nearby? Post your requirement here so volunteers and admins can contact you directly.
+          </p>
 
-      {loading && <p>Loading...</p>}
-      {error && <p className="error">{error}</p>}
+          <form onSubmit={handleStoreReceiver}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <input
+                type="text"
+                name="name"
+                placeholder="Patient / Receiver Name *"
+                value={receiverForm.name}
+                onChange={handleReceiverFormChange}
+                required
+              />
+              <input
+                type="tel"
+                name="phone"
+                placeholder="Contact Phone Number *"
+                value={receiverForm.phone}
+                onChange={handleReceiverFormChange}
+                required
+              />
+            </div>
 
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              <select name="blood_type" value={receiverForm.blood_type} onChange={handleReceiverFormChange} required>
+                <option value="" disabled>Select Needed Group *</option>
+                {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                name="district"
+                placeholder="District"
+                value={receiverForm.district}
+                onChange={handleReceiverFormChange}
+              />
+              <input
+                type="text"
+                name="city"
+                placeholder="City / Hospital Area"
+                value={receiverForm.city}
+                onChange={handleReceiverFormChange}
+              />
+            </div>
+
+            {requestError && <p className="error" style={{ margin: '10px 0' }}>{requestError}</p>}
+            {requestSuccess && <p style={{ color: '#276749', fontWeight: 'bold', margin: '10px 0' }}>{requestSuccess}</p>}
+
+            <button type="submit" disabled={submittingRequest} style={{ background: '#e53e3e', width: 'auto', padding: '10px 25px' }}>
+              {submittingRequest ? 'Submitting...' : 'Submit Request'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {loading && <p style={{ fontWeight: 'bold', color: '#e53e3e' }}>Fetching donors list...</p>}
+
+      {/* Donor Card Grid */}
       <ul className="donor-list">
         {donors.length > 0 ? (
           donors.map((donor) => (
@@ -168,13 +260,12 @@ function ReceiverSearch() {
                   className="donor-profile"
                   src={donor.profilePic || 'https://via.placeholder.com/150'}
                   alt={donor.name}
-                  onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150"; }}
+                  onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150'; }}
                 />
                 <div className="donor-name-group">
                   <h3>{donor.name}</h3>
                   <span className="blood-group-badge">{donor.blood_type}</span>
                 </div>
-                {/* Note: In database schema, availability is TINYINT(1) where 1 is true. So donor.availability might be 1 or 0 */}
                 <div className={`availability-badge ${donor.availability ? 'available' : 'unavailable'}`}>
                   {donor.availability ? 'Available' : 'Unavailable'}
                 </div>
@@ -182,16 +273,16 @@ function ReceiverSearch() {
               <div className="card-body">
                 <div className="info-grid">
                   <div className="info-item">
+                    <span className="info-label">Location</span>
+                    <span className="info-value">{donor.city || 'N/A'}, {donor.district || 'N/A'}</span>
+                  </div>
+                  <div className="info-item">
                     <span className="info-label">Age</span>
                     <span className="info-value">{calculateAge(donor.dob)}</span>
                   </div>
                   <div className="info-item">
                     <span className="info-label">Gender</span>
                     <span className="info-value" style={{ textTransform: 'capitalize' }}>{donor.gender || 'N/A'}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Weight</span>
-                    <span className="info-value">{donor.weight ? `${donor.weight} kg` : 'N/A'}</span>
                   </div>
                   <div className="info-item">
                     <span className="info-label">Last Donated</span>
@@ -202,14 +293,18 @@ function ReceiverSearch() {
                     </span>
                   </div>
                 </div>
-                <div className="contact-info">
-                  📞 {donor.phone}
-                </div>
+                <a href={`tel:${donor.phone}`} className="contact-info" style={{ display: 'block', textDecoration: 'none' }}>
+                  📞 Call {donor.phone}
+                </a>
               </div>
             </li>
           ))
         ) : (
-          !loading && <p className="no-results">No donors found. Please try a different location or blood group.</p>
+          searched && !loading && (
+            <p className="no-results" style={{ gridColumn: '1 / -1' }}>
+              No approved donors found for the specified criteria. Try clearing filters or selecting another blood group.
+            </p>
+          )
         )}
       </ul>
     </div>
