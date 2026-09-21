@@ -11,7 +11,33 @@ export const getProfile = async () => {
     .eq('id', user.id)
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // If the profile was not found (PGRST116), it might be due to the previous 'email' column bug.
+    // Let's create it on the fly so the user can see their profile.
+    if (error.code === 'PGRST116') {
+      const newProfile = {
+        id: user.id,
+        fname: user.user_metadata?.fname || user.user_metadata?.full_name?.split(" ")[0] || "User",
+        lname: user.user_metadata?.lname || user.user_metadata?.full_name?.split(" ").slice(1).join(" ") || "",
+        phone: user.user_metadata?.phone || "Not Provided",
+        profile_pic: user.user_metadata?.avatar_url || "",
+        role: "user",
+        status: "active"
+      };
+      await supabase.from('profiles').insert(newProfile);
+      return {
+        id: newProfile.id,
+        fname: newProfile.fname,
+        lname: newProfile.lname,
+        email: user.email,
+        phone: newProfile.phone,
+        profilePic: newProfile.profile_pic,
+        bloodGroup: null,
+        lastDonated: 'Never'
+      };
+    }
+    throw error;
+  }
 
   return {
     id: data.id,

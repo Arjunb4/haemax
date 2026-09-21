@@ -15,7 +15,7 @@ export const signup = async ({ fname, lname, phone, email, password }) => {
   // Create initial profile record if user object is returned
   if (data?.user) {
     const isSpecialAdmin = email.toLowerCase().trim() === 'arjunbb441@gmail.com';
-    await supabase.from('profiles').upsert({
+    const profileData = {
       id: data.user.id,
       email: data.user.email || email,
       fname,
@@ -24,7 +24,15 @@ export const signup = async ({ fname, lname, phone, email, password }) => {
       profile_pic: "",
       role: isSpecialAdmin ? 'admin' : 'user',
       status: 'active'
-    }, { onConflict: 'id' });
+    };
+    
+    const { error: upsertError } = await supabase.from('profiles').upsert(profileData, { onConflict: 'id' });
+    
+    // Fallback if the 'email' column does not exist in the database (Code: 42703)
+    if (upsertError && upsertError.code === '42703') {
+       delete profileData.email;
+       await supabase.from('profiles').upsert(profileData, { onConflict: 'id' });
+    }
   }
 
   return data;
@@ -35,10 +43,10 @@ export const login = async ({ email, password }) => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
-  // Gracefully check if profile exists
+  // Gracefully check if profile exists (omitting 'email' to prevent crash if column is missing)
   let { data: profile } = await supabase
     .from('profiles')
-    .select('status, role, profile_pic, email')
+    .select('status, role, profile_pic')
     .eq('id', data.user.id)
     .maybeSingle();
 
@@ -58,7 +66,12 @@ export const login = async ({ email, password }) => {
       status: 'active'
     };
     
-    await supabase.from('profiles').insert(newProfile);
+    const { error: insertError } = await supabase.from('profiles').insert(newProfile);
+    if (insertError && insertError.code === '42703') {
+       delete newProfile.email;
+       await supabase.from('profiles').insert(newProfile);
+    }
+    
     profile = newProfile;
   } else if (isSpecialAdmin && profile.role !== 'admin') {
     // Auto-promote arjunbb441@gmail.com to admin if not set

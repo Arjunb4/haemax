@@ -7,7 +7,17 @@ export const getAllUsers = async () => {
     .select('id, email, fname, lname, phone, profile_pic, role, status, created_at')
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    if (error.code === '42703') {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('profiles')
+        .select('id, fname, lname, phone, profile_pic, role, status, created_at')
+        .order('created_at', { ascending: false });
+      if (fallbackError) throw fallbackError;
+      return (fallbackData || []).map(u => ({ ...u, email: 'Missing DB Column' }));
+    }
+    throw error;
+  }
   return (data || []).map(u => ({ ...u, email: u.email || '' }));
 };
 
